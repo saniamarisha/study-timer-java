@@ -29,7 +29,7 @@ public class StudyTimerApp extends JFrame {
     private boolean isStudySession = true;
 
     public StudyTimerApp() {
-        setTitle("Pastel Study Timer");
+        setTitle("Study Session Planner");
         setSize(400, 500);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -113,19 +113,11 @@ public class StudyTimerApp extends JFrame {
             int studyMin = Integer.parseInt(studyInput.getText());
             int breakMin = Integer.parseInt(breakInput.getText());
             
-            // Initial Start logic
             if (startButton.getText().equals("Start Session")) {
                 remainingSeconds = studyMin * 60;
                 isStudySession = true;
                 updateStatus(true);
             }
-            // else resuming... (simplified for this version, we just restart or pause/resume logic can be added, 
-            // but requirements say "Clicks Start Session -> Starts countdown", so let's keep it simple restart/start mechanism usually expected in basic apps, 
-            // OR fully implement pause. The button text toggle implies pause/resume capability or restart.
-            // Let's go with: If running -> Pause. If Paused -> Resume. If "Start Session" -> New Session.)
-            
-            // Actually, let's strictly follow: "Clicks Start Session -> App Starts". Simple.
-            // I'll make the button toggle between Start and Stop for simplicity of code in this constraint.
             
             startTimerIter();
             startButton.setText("Stop");
@@ -153,24 +145,58 @@ public class StudyTimerApp extends JFrame {
     private void switchSession() {
         timer.stop();
         if (isStudySession) {
-            // Switch to Break
+            // Study Finished -> Start Break
             isStudySession = false;
             try {
+                playTone(600, 300); // Simple 'ding'
+                Thread.sleep(100);
+                playTone(800, 500); // Higher 'dong'
+                
                 int breakMin = Integer.parseInt(breakInput.getText());
                 remainingSeconds = breakMin * 60;
                 updateStatus(false);
                 timer.start();
-                Toolkit.getDefaultToolkit().beep(); // Alert
-            } catch (NumberFormatException e) {
-                 // Should not happen if validated start
+            } catch (Exception e) {
+                 e.printStackTrace();
             }
         } else {
-            // Session Complete
+            // Break Finished -> Session Done
+            try {
+                // Alarm sound (beep beep beep)
+                for(int i=0; i<3; i++) {
+                     playTone(1000, 200);
+                     Thread.sleep(100);
+                }
+            } catch (Exception e) {}
+            
             statusLabel.setText("Session Complete!");
             startButton.setText("Start Session");
             timerLabel.setText("00:00");
-             Toolkit.getDefaultToolkit().beep(); 
         }
+    }
+
+    // Audio Synthesis Helper
+    private void playTone(int hz, int msecs) throws javax.sound.sampled.LineUnavailableException {
+        float SAMPLE_RATE = 8000f;
+        byte[] buf = new byte[1];
+        javax.sound.sampled.AudioFormat af = 
+            new javax.sound.sampled.AudioFormat(
+                SAMPLE_RATE, // sampleRate
+                8,           // sampleSizeInBits
+                1,           // channels
+                true,        // signed
+                false);      // bigEndian
+        javax.sound.sampled.SourceDataLine sdl = javax.sound.sampled.AudioSystem.getSourceDataLine(af);
+        sdl.open(af);
+        sdl.start();
+        for (int i = 0; i < msecs * 8; i++) {
+            double angle = i / (SAMPLE_RATE / hz) * 2.0 * Math.PI;
+            buf[0] = (byte) (Math.sin(angle) * 127.0 * 0.8); // 0.8 volume
+            sdl.write(buf, 0, 1);
+        }
+        sdl.drain();
+        sdl.stop();
+        sdl.close();
     }
 
     private void updateStatus(boolean studying) {
